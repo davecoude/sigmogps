@@ -16,7 +16,7 @@ def get_engine() -> AsyncEngine:
         raise RuntimeError("DATABASE_URL no está definida")
     return create_async_engine(
         settings.database_url,
-        echo=settings.app_debug,
+        echo=False,  # el eco de SQLAlchemy duplica líneas y vuelca hashes al stdout
         pool_pre_ping=True,  # Neon cierra conexiones ociosas
         pool_size=5,
         max_overflow=5,
