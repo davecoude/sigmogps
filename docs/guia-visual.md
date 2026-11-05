@@ -103,8 +103,8 @@ Cada estado lleva además punto, icono o texto. Un operador con daltonismo rojo-
   --shadow-lg:0 18px 48px rgba(23,20,28,.16), 0 2px 8px rgba(23,20,28,.07);
 
   /* tipografía */
-  --display:"Archivo", "Helvetica Neue", Arial, sans-serif;
-  --body:"Public Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --display:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --body:"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 ```
@@ -115,8 +115,8 @@ Cada estado lleva además punto, icono o texto. Un operador con daltonismo rojo-
 
 | Rol | Familia | Uso |
 |---|---|---|
-| Display | Archivo 600 / 700, tracking `-0.022em` | Titulares, nombres de unidad, KPIs |
-| Cuerpo | Public Sans 400 / 500 / 600 | Todo el texto corrido y la interfaz |
+| Display | Inter 600 / 700, tracking `-0.02em` | Titulares, nombres de unidad, KPIs |
+| Cuerpo | Inter 400 / 500 / 600 | Todo el texto corrido y la interfaz |
 | Dato | IBM Plex Mono 400 / 500 con `tabular-nums` | Placas, coordenadas, velocidades, horas, IDs |
 
 La monoespaciada no es decorativa: placas, coordenadas y velocidades se leen en columna dentro de tablas y listas, y tienen que alinearse dígito con dígito. Es el detalle que delata si alguien pensó en el operador o solo en la captura de pantalla.
