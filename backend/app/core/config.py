@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     wialon_token: SecretStr = SecretStr("")
     wialon_timeout_seconds: float = 10.0
     wialon_cache_ttl_seconds: int = 15
+    wialon_resource_id: int = 27668776
 
     # Umbrales del estado derivado (sección 4.4)
     vehicle_stale_minutes: int = 10

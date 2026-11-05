@@ -12,6 +12,8 @@ from app.core.config import Settings, get_settings
 from app.core.logging import configurar_logging, get_logger
 from app.core.problem import registrar_manejadores
 
+from app.infrastructure.wialon.client import close_wialon_client
+
 logger = get_logger(__name__)
 
 
@@ -20,6 +22,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = get_settings()
     logger.info("arranque", env=settings.app_env, debug=settings.app_debug)
     yield
+    await close_wialon_client()
     logger.info("apagado")
 
 
