@@ -1,0 +1,34 @@
+# Entorno y credenciales
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Nuxt
+node_modules/
+.nuxt/
+.output/
+.nitro/
+dist/
+*.log
+
+# Sondeo de Wialon
+wialon-probe.sh
+wialon-probe-out/
+
+# Sistema operativo y editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
