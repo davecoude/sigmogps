@@ -1,5 +1,9 @@
 import tailwindcss from '@tailwindcss/vite'
 
+// Origen real del backend. El navegador nunca lo ve: se accede por el
+// proxy de abajo, para que la cookie de sesión sea de primera parte.
+const apiOrigin = process.env.API_ORIGIN ?? 'http://localhost:8000'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-11-05',
   devtools: { enabled: true },
@@ -20,7 +24,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // Se sobreescribe con NUXT_PUBLIC_API_BASE_URL en Vercel.
-      apiBaseUrl: 'http://localhost:8000/api/v1',
+      apiBaseUrl: '/api/v1',
     },
   },
 
@@ -55,6 +59,10 @@ export default defineNuxtConfig({
   routeRules: {
     '/': { prerender: true },
     '/app/**': { ssr: false },
+    // Las cookies de tercero están bloqueadas por defecto en Safari y Brave.
+    // Con el API bajo el mismo origen, la sesión es de primera parte y no
+    // hay petición cruzada que negociar (SEG-11, DEP-03).
+    '/api/**': { proxy: `${apiOrigin}/api/**` },
   },
 
   typescript: { strict: true },
