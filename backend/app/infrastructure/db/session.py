@@ -18,9 +18,12 @@ def get_engine() -> AsyncEngine:
         settings.database_url,
         echo=False,  # el eco de SQLAlchemy duplica líneas y vuelca hashes al stdout
         pool_pre_ping=True,  # Neon cierra conexiones ociosas
-        pool_size=5,
-        max_overflow=5,
+        pool_size=10,
+        max_overflow=10,
         pool_recycle=300,
+        # Sin esto, agotar el pool deja la petición esperando para siempre.
+        # Con esto falla en 10 s con un error que se puede diagnosticar.
+        pool_timeout=10,
     )
 
 

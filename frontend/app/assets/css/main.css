@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* ───────────────────────────────────────────────────────────
+   sigmoGPS · tokens
+   Paleta obligatoria repartida por contraste medido.
+   Superficie clara: landing y login. Superficie oscura: panel.
+   ─────────────────────────────────────────────────────────── */
+@theme {
+  /* tipografía */
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* marca */
+  --color-brand: #A81A2B;        /* 7.35:1 sobre blanco · acciones y enlaces */
+  --color-brand-hi: #EB162C;     /* 4.47:1 · acento, crítico. NUNCA texto */
+  --color-brand-soft: #FBE7E9;
+  --color-brand-dark: #FF6274;   /* 6.36:1 sobre #17141C */
+
+  /* estado */
+  --color-teal: #1E8C93;         /* 4.02:1 · relleno, no texto */
+  --color-teal-ink: #15666B;     /* 6.68:1 · sí texto */
+  --color-teal-soft: #E2F2F3;
+  --color-teal-dark: #4FC3C9;
+  --color-ochre: #8A5A00;        /* único color añadido · advertencia */
+  --color-ochre-soft: #F6EEDC;
+
+  /* superficie clara */
+  --color-ink: #17141C;
+  --color-ink-2: #44404D;
+  --color-muted: #6B6B6B;
+  --color-paper: #FFFFFF;
+  --color-wash: #EEE8F2;
+  --color-wash-2: #F7F4FA;
+  --color-line: #DCD4E2;
+  --color-line-strong: #C3B9CC;
+
+  /* superficie oscura · panel */
+  --color-console: #17141C;
+  --color-console-2: #211D29;
+  --color-console-3: #111016;
+  --color-console-line: #352F3F;
+  --color-console-ink: #EEE8F2;
+  --color-console-muted: #9A94A3;
+
+  /* radios */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    @apply bg-wash text-ink font-sans;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-semibold tracking-tight;
+    text-wrap: balance;
+  }
+
+  /* Foco visible en todo elemento interactivo (UX-03). */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand rounded-sm;
+  }
+
+  /* Las cifras que se leen en columna deben alinearse dígito con dígito. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
