@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Admin inicial (RF-07)
     admin_email: str = ""
     admin_password: SecretStr = SecretStr("")
+    # Con true, el seed reescribe la clave del Admin aunque ya exista.
+    # Se usa una vez y se vuelve a poner en false.
+    admin_password_force: bool = False
 
     # Wialon
     wialon_host: str = ""

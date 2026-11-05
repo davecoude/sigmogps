@@ -60,7 +60,17 @@ async def _ensure_admin(session: AsyncSession, roles: dict[str, Role]) -> None:
 
     existente = await session.scalar(select(User).where(User.email == email))
     if existente is not None:
-        logger.info("seed_admin_existente", email=email)
+        if not settings.admin_password_force:
+            logger.info("seed_admin_existente", email=email)
+            return
+        # Reinicio explícito: sube token_version para cerrar las sesiones vivas.
+        existente.password_hash = hash_password(password)
+        existente.must_change_password = False
+        existente.is_active = True
+        existente.failed_login_attempts = 0
+        existente.locked_until = None
+        existente.token_version += 1
+        logger.warning("seed_admin_clave_reiniciada", email=email)
         return
 
     session.add(
