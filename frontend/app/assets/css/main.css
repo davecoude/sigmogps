@@ -1,18 +1,24 @@
 @import "tailwindcss";
 
-/* ───────────────────────────────────────────────────────────
-   sigmoGPS · tokens
-   Paleta obligatoria repartida por contraste medido.
-   Superficie clara: landing y login. Superficie oscura: panel.
-   ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   sigmoGPS · sistema de diseño
+
+   Dos capas:
+   1. Tokens literales (@theme) — la paleta obligatoria y sus derivados.
+   2. Tokens semánticos por superficie — un componente no sabe si está en
+      claro u oscuro: lee --surface, --on-surface, --border. La superficie
+      la decide el contenedor con .surface-light o .surface-dark.
+
+   Sin esta segunda capa, cada componente necesitaría una variante `dark`
+   y bastaría olvidarla una vez para dejar un formulario ilegible.
+   ═══════════════════════════════════════════════════════════ */
 @theme {
-  /* tipografía */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* marca */
-  --color-brand: #A81A2B;        /* 7.35:1 sobre blanco · acciones y enlaces */
-  --color-brand-hi: #EB162C;     /* 4.47:1 · acento, crítico. NUNCA texto */
+  /* marca — contraste medido sobre blanco */
+  --color-brand: #A81A2B;        /* 7.35:1 · acciones y enlaces */
+  --color-brand-hi: #EB162C;     /* 4.47:1 · acento. NUNCA texto pequeño */
   --color-brand-soft: #FBE7E9;
   --color-brand-dark: #FF6274;   /* 6.36:1 sobre #17141C */
 
@@ -34,43 +40,158 @@
   --color-line: #DCD4E2;
   --color-line-strong: #C3B9CC;
 
-  /* superficie oscura · panel */
+  /* superficie oscura */
   --color-console: #17141C;
   --color-console-2: #211D29;
-  --color-console-3: #111016;
+  --color-console-3: #15131A;
   --color-console-line: #352F3F;
   --color-console-ink: #EEE8F2;
   --color-console-muted: #9A94A3;
 
-  /* radios */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
   --radius-xl: 24px;
 }
 
+/* ── capa semántica ─────────────────────────────────────── */
+:root,
+.surface-light {
+  --surface: #FFFFFF;
+  --surface-sunken: #F7F4FA;
+  --on-surface: #17141C;         /* 16.9:1 */
+  --on-surface-soft: #44404D;    /*  9.2:1 · etiquetas */
+  --on-surface-muted: #6B6B6B;   /*  5.3:1 · pistas */
+  --border: #DCD4E2;
+  --border-strong: #C3B9CC;
+  --focus: #A81A2B;
+  --action: #A81A2B;
+  --action-hover: #EB162C;
+  --on-action: #FFFFFF;
+  --danger: #A81A2B;
+  --danger-hover: #EB162C;
+}
+
+.surface-dark {
+  --surface: #211D29;
+  --surface-sunken: #15131A;
+  --on-surface: #EEE8F2;         /* 15.4:1 sobre #211D29 */
+  --on-surface-soft: #C0B9C9;    /*  8.3:1 · etiquetas */
+  --on-surface-muted: #9A94A3;   /*  5.8:1 · pistas */
+  --border: #352F3F;
+  --border-strong: #4A4354;
+  --focus: #FF6274;
+  --action: #EB162C;
+  --action-hover: #FF6274;
+  --on-action: #FFFFFF;
+  --danger: #EB162C;
+  --danger-hover: #FF6274;
+  color-scheme: dark;
+}
+
 @layer base {
-  html {
-    -webkit-font-smoothing: antialiased;
-  }
+  html { -webkit-font-smoothing: antialiased; }
 
   body {
-    @apply bg-wash text-ink font-sans;
+    background: var(--color-wash);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
   }
 
   h1, h2, h3, h4 {
-    @apply font-semibold tracking-tight;
+    font-weight: 600;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
-  /* Foco visible en todo elemento interactivo (UX-03). */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-brand rounded-sm;
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
-  /* Las cifras que se leen en columna deben alinearse dígito con dígito. */
-  .tabular {
-    font-variant-numeric: tabular-nums;
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+/* ── primitivas ─────────────────────────────────────────── */
+@layer components {
+  /* campos */
+  .field { display: grid; gap: 0.375rem; }
+
+  .field-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--on-surface-soft);
+  }
+
+  .field-input {
+    width: 100%;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    color: var(--on-surface);
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    transition: border-color 0.12s ease;
+  }
+  .field-input::placeholder { color: var(--on-surface-muted); }
+  .field-input:hover { border-color: var(--focus); }
+  .field-input[aria-invalid="true"] { border-color: var(--danger); }
+
+  .field-hint { font-size: 0.75rem; color: var(--on-surface-muted); }
+  .field-error { font-size: 0.75rem; color: var(--danger); font-weight: 500; }
+
+  /* botones */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+  }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn-pill { border-radius: 999px; }
+
+  .btn-primary { background: var(--action); color: var(--on-action); }
+  .btn-primary:hover:not(:disabled) { background: var(--action-hover); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--on-surface);
+    border-color: var(--border-strong);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-sunken); }
+
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+
+  /* acción discreta dentro de una tabla */
+  .btn-row {
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--on-surface-muted);
+    cursor: pointer;
+    transition: color 0.12s ease, border-color 0.12s ease;
+  }
+  .btn-row:hover { color: var(--on-surface); border-color: var(--border-strong); }
+  .btn-row-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+  .btn-row-danger:hover { color: var(--danger-hover); border-color: var(--danger); }
+
+  /* superficies */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
   }
 }
 
