@@ -3,6 +3,7 @@
 from typing import Any
 
 from app.infrastructure.wialon.client import WialonClient
+from app.domain.exceptions import ExternalServiceError
 
 # 1 (base) + 8 (campos personalizados) + 1024 (última posición)
 FLAGS_UNIDAD = 1033
@@ -44,3 +45,50 @@ class WialonFleetRepository:
         )
         item = datos.get("item") or {}
         return list((item.get("drvrs") or {}).values())
+
+    # ───────────────────────── escrituras ─────────────────────────
+
+    async def get_driver(self, resource_id: int, driver_id: int) -> dict[str, Any] | None:
+        """Lee un conductor completo. Base del patrón leer-mezclar-escribir."""
+        for bruto in await self.list_drivers(resource_id):
+            if int(bruto.get("id", -1)) == driver_id:
+                return bruto
+        return None
+
+    async def save_driver(self, resource_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        """Crea o actualiza. `payload` DEBE traer el objeto completo.
+
+        Wialon trata la actualización como reemplazo: lo que no mandas, se
+        pierde. El servicio arma el objeto completo antes de llamar aquí.
+        """
+        datos = await self._client.call(
+            "resource/update_driver",
+            {"itemId": resource_id, **payload},
+            usar_cache=False,
+        )
+        # Respuesta: [id, objeto]
+        if isinstance(datos, list) and len(datos) == 2 and datos[1]:
+            return datos[1]
+        raise ExternalServiceError("Wialon no devolvió el conductor guardado")
+
+    async def delete_driver(self, resource_id: int, driver_id: int) -> None:
+        await self._client.call(
+            "resource/update_driver",
+            {"itemId": resource_id, "id": driver_id, "callMode": "delete"},
+            usar_cache=False,
+        )
+
+    async def bind_driver(
+        self, resource_id: int, *, unit_id: int, driver_id: int, bind: bool
+    ) -> None:
+        await self._client.call(
+            "resource/bind_unit_driver",
+            {
+                "resourceId": resource_id,
+                "unitId": unit_id,
+                "driverId": driver_id,
+                "time": 0,
+                "mode": 1 if bind else 0,
+            },
+            usar_cache=False,
+        )
