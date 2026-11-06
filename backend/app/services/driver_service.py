@@ -6,12 +6,16 @@ campos personalizados del conductor. Por eso toda escritura pasa por
 leer-mezclar-escribir y nunca se construye el objeto desde cero.
 """
 
+import asyncio
 from dataclasses import dataclass
 
+from app.core.logging import get_logger
 from app.domain.exceptions import ConflictError, NotFoundError, ValidationError
 from app.domain.models import Driver
 from app.infrastructure.wialon.mappers import map_driver
 from app.infrastructure.wialon.repository import WialonFleetRepository
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +138,29 @@ class DriverService:
 
     # ───────────────────────── vínculos ─────────────────────────
 
+    # Wialon acepta el vínculo al instante pero tarda un par de segundos en
+    # exponerlo en `bu`. Si el endpoint respondiera de inmediato, la interfaz
+    # releería antes de tiempo y mostraría el estado anterior. Medido: ~2.3 s.
+    _ESPERA_PROPAGACION = 6.0
+    _INTERVALO_SONDEO = 0.4
+
+    async def _esperar_propagacion(self, driver_id: int, esperado: int | None) -> bool:
+        """Sondea hasta que Wialon exponga el vínculo. Devuelve si lo confirmó."""
+        limite = asyncio.get_running_loop().time() + self._ESPERA_PROPAGACION
+        while asyncio.get_running_loop().time() < limite:
+            bruto = await self._repo.get_driver(self._resource_id, driver_id)
+            actual = int((bruto or {}).get("bu") or 0) or None
+            if actual == esperado:
+                return True
+            await asyncio.sleep(self._INTERVALO_SONDEO)
+        logger.warning(
+            "wialon_vinculo_sin_confirmar",
+            driver_id=driver_id,
+            esperado=esperado,
+            segundos=self._ESPERA_PROPAGACION,
+        )
+        return False
+
     async def bind(self, *, driver_id: int, unit_id: int) -> None:
         conductor = await self.get_driver(driver_id)
         if conductor.bound_unit_id == unit_id:
@@ -141,8 +168,10 @@ class DriverService:
         await self._repo.bind_driver(
             self._resource_id, unit_id=unit_id, driver_id=driver_id, bind=True
         )
+        await self._esperar_propagacion(driver_id, unit_id)
 
     async def unbind(self, *, driver_id: int, unit_id: int) -> None:
         await self._repo.bind_driver(
             self._resource_id, unit_id=unit_id, driver_id=driver_id, bind=False
         )
+        await self._esperar_propagacion(driver_id, None)

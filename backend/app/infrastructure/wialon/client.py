@@ -85,6 +85,7 @@ class WialonClient:
         timeout: float = 10.0,
         cache_ttl: int = 15,
         max_reintentos: int = 2,
+        write_quarantine: float = 6.0,
     ) -> None:
         self._base_url = _normalizar_url(host)
         self._token = token
@@ -94,6 +95,8 @@ class WialonClient:
         # vez, solo una hace login y las demás esperan ese resultado.
         self._lock = asyncio.Lock()
         self._cache = _CacheTTL(cache_ttl)
+        self._cuarentena = write_quarantine
+        self._ultima_escritura = float('-inf')
         self._http = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout, connect=5.0),
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
@@ -177,8 +180,16 @@ class WialonClient:
         params = params or {}
         es_lectura = servicio in SERVICIOS_DE_LECTURA
 
+        # Wialon no refleja una escritura al instante. Mientras dura la
+        # cuarentena, las lecturas van directo a la fuente: ni se sirven ni se
+        # guardan en caché. Sin esto, la primera lectura tras escribir trae el
+        # valor viejo y lo deja fijado durante todo el TTL.
+        en_cuarentena = (
+            time.monotonic() - self._ultima_escritura
+        ) < self._cuarentena
+
         clave_cache = ""
-        if es_lectura and usar_cache:
+        if es_lectura and usar_cache and not en_cuarentena:
             clave_cache = f"{servicio}:{json.dumps(params, sort_keys=True, separators=(',', ':'))}"
             en_cache = self._cache.get(clave_cache)
             if en_cache is not None:
@@ -192,6 +203,11 @@ class WialonClient:
                 datos = await self._post(servicio, params, sid=sid, servicio_log=servicio)
                 if clave_cache:
                     self._cache.set(clave_cache, datos)
+                elif not es_lectura:
+                    # Una escritura deja obsoleta cualquier lectura guardada y
+                    # abre la ventana de cuarentena.
+                    self._cache.clear()
+                    self._ultima_escritura = time.monotonic()
                 return datos
 
             except WialonSessionExpired as exc:
@@ -238,6 +254,7 @@ def get_wialon_client() -> WialonClient:
             token=settings.wialon_token.get_secret_value(),
             timeout=settings.wialon_timeout_seconds,
             cache_ttl=settings.wialon_cache_ttl_seconds,
+            write_quarantine=settings.wialon_write_quarantine_seconds,
         )
     return _cliente
 
