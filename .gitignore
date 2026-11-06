@@ -34,3 +34,8 @@ Thumbs.db
 !.vscode/extensions.json
 *.egg-info/
 probe_wialon.py
+
+# Cookies de pruebas con curl
+c.txt
+cookies.txt
+probe_bind.py
