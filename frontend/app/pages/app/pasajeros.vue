@@ -230,6 +230,7 @@ async function quitarAsignacion(p: Passenger) {
         class="field-input max-w-sm"
       />
 
+      <BotonExportar recurso="passengers" />
       <AppButton v-if="puedeEditar" @click="abrirCrear">Nuevo pasajero</AppButton>
     </header>
 

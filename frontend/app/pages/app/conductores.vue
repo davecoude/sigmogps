@@ -209,6 +209,7 @@ async function quitarVinculo(d: Driver) {
         class="field-input max-w-xs"
       />
 
+      <BotonExportar recurso="drivers" />
       <AppButton v-if="puedeEditar" @click="abrirCrear">Nuevo conductor</AppButton>
     </header>
 
