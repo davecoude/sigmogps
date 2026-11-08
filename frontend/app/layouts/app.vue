@@ -24,7 +24,9 @@ const iniciales = computed(() =>
 </script>
 
 <template>
-  <div class="surface-dark flex min-h-dvh flex-col bg-console text-console-ink md:flex-row">
+  <!-- Alto exacto de la ventana y sin desborde: así el contenido recibe el
+       espacio que sobra y puede decidir cuánto cabe dentro. -->
+  <div class="surface-dark flex h-dvh overflow-hidden flex-col bg-console text-console-ink md:flex-row">
     <!-- Riel de navegación. En móvil pasa abajo, al alcance del pulgar. -->
     <nav
       class="order-2 flex shrink-0 items-center gap-1 border-t border-console-line bg-console-3
@@ -69,7 +71,7 @@ const iniciales = computed(() =>
       </button>
     </nav>
 
-    <main class="order-1 min-h-0 min-w-0 flex-1 md:order-2">
+    <main class="order-1 min-h-0 min-w-0 flex-1 overflow-hidden md:order-2">
       <slot />
     </main>
   </div>
