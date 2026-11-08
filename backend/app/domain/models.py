@@ -97,3 +97,4 @@ class Passenger:
     phone: str | None
     description: str | None
     custom_fields: dict[str, str] = field(default_factory=dict)
+    bound_unit_id: int | None = None

@@ -8,9 +8,23 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 
 from app.domain.exceptions import ValidationError
 
-# Argon2id con los parámetros por defecto de argon2-cffi, que siguen la
-# recomendación de OWASP. Se elige sobre bcrypt por resistencia a GPU.
-_hasher = PasswordHasher()
+# Argon2id con la configuración principal del OWASP Password Storage Cheat
+# Sheet: 19 MiB de memoria, 2 iteraciones y paralelismo 1.
+#
+# No son los valores por defecto de argon2-cffi (64 MiB, 3 iteraciones,
+# 4 hilos), que asumen un servidor dedicado. En el plan gratuito de Render,
+# con una fracción de vCPU, pedir cuatro hilos los hace competir por el mismo
+# núcleo: el login tardaba 2,3 s de CPU. Las cuatro combinaciones que publica
+# OWASP usan paralelismo 1 justamente por eso.
+#
+# El costo sigue siendo el recomendado para producción; lo que cambia es que
+# está dimensionado al hardware real donde corre.
+# https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
+_hasher = PasswordHasher(
+    memory_cost=19456,  # 19 MiB
+    time_cost=2,
+    parallelism=1,
+)
 
 MIN_PASSWORD_LENGTH = 12
 

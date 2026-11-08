@@ -8,23 +8,10 @@ una consulta por página; el enfoque deja de servir por encima de unas pocas
 miles y queda documentado como límite conocido.
 """
 
-from dataclasses import dataclass
-
 from app.domain.models import Vehicle, VehicleStatus
+from app.domain.pagination import Page, paginar
 from app.domain.ports import FleetProvider
 from app.infrastructure.wialon.mappers import map_driver, map_vehicle
-
-
-@dataclass(frozen=True, slots=True)
-class Page[T]:
-    items: list[T]
-    total: int
-    page: int
-    page_size: int
-
-    @property
-    def pages(self) -> int:
-        return max(1, -(-self.total // self.page_size))
 
 
 class VehicleService:
@@ -100,14 +87,7 @@ class VehicleService:
         }
         vehiculos.sort(key=lambda v: (prioridad[v.status], v.display_name.lower()))
 
-        total = len(vehiculos)
-        inicio = (page - 1) * page_size
-        return Page(
-            items=vehiculos[inicio : inicio + page_size],
-            total=total,
-            page=page,
-            page_size=page_size,
-        )
+        return paginar(vehiculos, page=page, page_size=page_size)
 
     async def get_vehicle(self, vehicle_id: int) -> Vehicle | None:
         for v in await self._vehiculos_con_conductor():

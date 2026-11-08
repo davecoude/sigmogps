@@ -4,8 +4,10 @@ import uuid
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func, select
 
 from app.infrastructure.db.models import AuditLog
+from app.domain.pagination import Page
 
 
 async def record(
@@ -43,3 +45,48 @@ def _client_ip(request: Request | None) -> str | None:
     if forwarded:
         return forwarded.split(",")[0].strip()[:45]
     return request.client.host if request.client else None
+
+async def list_entries(
+    session: AsyncSession,
+    *,
+    action: str | None = None,
+    search: str | None = None,
+    only_failures: bool = False,
+    page: int = 1,
+    page_size: int = 25,
+) -> Page[AuditLog]:
+    """Listado paginado en la base, no en memoria: esta tabla solo crece."""
+    condiciones = []
+    if action:
+        condiciones.append(AuditLog.action == action)
+    if only_failures:
+        condiciones.append(AuditLog.success.is_(False))
+    if search:
+        patron = f"%{search.strip().lower()}%"
+        condiciones.append(
+            func.lower(func.coalesce(AuditLog.user_email, "")).like(patron)
+            | func.lower(func.coalesce(AuditLog.entity_id, "")).like(patron)
+            | func.lower(AuditLog.action).like(patron)
+        )
+
+    base = select(AuditLog)
+    if condiciones:
+        for c in condiciones:
+            base = base.where(c)
+
+    total = await session.scalar(
+        select(func.count()).select_from(base.subquery())
+    ) or 0
+
+    filas = await session.scalars(
+        base.order_by(AuditLog.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    return Page(items=list(filas.all()), total=total, page=page, page_size=page_size)
+
+
+async def list_actions(session: AsyncSession) -> list[str]:
+    """Acciones distintas presentes, para alimentar el filtro."""
+    filas = await session.scalars(select(AuditLog.action).distinct().order_by(AuditLog.action))
+    return list(filas.all())

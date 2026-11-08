@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, status
 
 from app.api.deps import SessionDep, VerifiedUser, require_permission, verify_csrf
+from app.api.v1.schemas.common import PagedResponse, PageMeta
 from app.api.v1.schemas.drivers import BindRequest, DriverOut, DriverWrite
 from app.core.config import get_settings
 from app.domain.permissions import Permission
@@ -42,12 +43,24 @@ def _a_input(payload: DriverWrite) -> DriverInput:
     )
 
 
-@router.get("", response_model=list[DriverOut], dependencies=[Leer], summary="Listar conductores")
+@router.get("", response_model=PagedResponse[DriverOut], dependencies=[Leer],
+            summary="Listar conductores")
 async def list_drivers(
     service: ServiceDep,
     search: Annotated[str | None, Query(max_length=80)] = None,
-) -> list[DriverOut]:
-    return [DriverOut.from_domain(d) for d in await service.list_drivers(search=search)]
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> PagedResponse[DriverOut]:
+    resultado = await service.list_page(search=search, page=page, page_size=page_size)
+    return PagedResponse(
+        items=[DriverOut.from_domain(d) for d in resultado.items],
+        meta=PageMeta(
+            total=resultado.total,
+            page=resultado.page,
+            page_size=resultado.page_size,
+            pages=resultado.pages,
+        ),
+    )
 
 
 @router.get("/{driver_id}", response_model=DriverOut, dependencies=[Leer], summary="Detalle")

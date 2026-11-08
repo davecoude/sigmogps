@@ -13,7 +13,44 @@ const puedeEditar = computed(() => puede('drivers:write'))
 const puedeVincular = computed(() => puede('bindings:write'))
 
 const busqueda = ref('')
-const { data: conductores, isPending, isError, error, refetch, isFetching } = useDrivers(busqueda)
+const pagina = ref(1)
+
+// El tamaño de página lo decide el alto de la ventana, no una constante.
+const zonaTabla = ref<HTMLElement | null>(null)
+const { filas: porPagina } = useFilasQueCaben(zonaTabla)
+
+// Al cambiar el tamaño de página, la fila que el usuario miraba debe seguir
+// visible: se recalcula a qué página pertenece.
+watch(porPagina, (nuevo, anterior) => {
+  if (!anterior || !nuevo) return
+  const primerRegistro = (pagina.value - 1) * anterior
+  pagina.value = Math.floor(primerRegistro / nuevo) + 1
+})
+
+const busquedaDiferida = ref('')
+let temporizador: ReturnType<typeof setTimeout>
+watch(busqueda, (v) => {
+  clearTimeout(temporizador)
+  temporizador = setTimeout(() => {
+    busquedaDiferida.value = v
+    pagina.value = 1
+  }, 350)
+})
+
+const filtros = computed(() => ({
+  search: busquedaDiferida.value,
+  page: pagina.value,
+  pageSize: porPagina.value,
+}))
+
+/** Número de registro dentro del total, no dentro de la página. */
+function numeroDeFila(indice: number) {
+  return (meta.value ? (meta.value.page - 1) * meta.value.page_size : 0) + indice + 1
+}
+
+const { data, isPending, isError, error, refetch, isFetching } = useDrivers(filtros)
+const conductores = computed(() => data.value?.items ?? [])
+const meta = computed(() => data.value?.meta)
 const { crear, editar, eliminar, vincular, desvincular } = useDriverMutations()
 
 const filtrosVehiculos = computed(() => ({ pageSize: 100 }))
@@ -148,11 +185,11 @@ async function quitarVinculo(d: Driver) {
       <div class="mr-auto flex items-baseline gap-3">
         <h1 class="text-lg font-semibold">Conductores</h1>
         <span
-          v-if="conductores?.length"
+          v-if="meta"
           class="font-mono text-xs tabular"
           :style="{ color: 'var(--on-surface-muted)' }"
         >
-          {{ conductores.length }}
+          {{ meta.total }}
         </span>
         <!-- Señal de que el listado se está releyendo tras una acción. -->
         <span
@@ -172,10 +209,11 @@ async function quitarVinculo(d: Driver) {
         class="field-input max-w-xs"
       />
 
+      <BotonExportar recurso="drivers" />
       <AppButton v-if="puedeEditar" @click="abrirCrear">Nuevo conductor</AppButton>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-auto p-4">
+    <div ref="zonaTabla" class="flex min-h-0 flex-1 flex-col p-4">
       <div v-if="isPending" class="grid gap-2" aria-busy="true">
         <div
           v-for="n in 6"
@@ -192,7 +230,7 @@ async function quitarVinculo(d: Driver) {
         <AppButton class="mt-3" variant="ghost" block @click="refetch()">Reintentar</AppButton>
       </div>
 
-      <div v-else-if="!conductores?.length" class="grid justify-items-center gap-2 py-16 text-center">
+      <div v-else-if="!conductores.length" class="grid justify-items-center gap-2 py-16 text-center">
         <span class="text-3xl" aria-hidden="true">⚇</span>
         <p class="font-semibold">
           {{ busqueda ? 'Ningún conductor coincide' : 'Todavía no hay conductores' }}
@@ -209,7 +247,11 @@ async function quitarVinculo(d: Driver) {
         </AppButton>
       </div>
 
-      <div v-else class="overflow-x-auto rounded-md border" :style="{ borderColor: 'var(--border)' }">
+      <div
+        v-else
+        class="min-h-0 flex-1 overflow-x-auto rounded-md border"
+        :style="{ borderColor: 'var(--border)' }"
+      >
         <table class="w-full min-w-[46rem] border-collapse text-sm">
           <caption class="sr-only">Conductores de la cuenta y su vehículo vinculado</caption>
           <thead>
@@ -217,6 +259,7 @@ async function quitarVinculo(d: Driver) {
               class="text-left text-xs font-semibold"
               :style="{ background: 'var(--surface)', color: 'var(--on-surface-soft)' }"
             >
+              <th scope="col" class="w-12 p-3 text-right">#</th>
               <th scope="col" class="p-3">Nombre</th>
               <th scope="col" class="p-3">Código</th>
               <th scope="col" class="p-3">Teléfono</th>
@@ -226,12 +269,18 @@ async function quitarVinculo(d: Driver) {
           </thead>
           <tbody>
             <tr
-              v-for="d in conductores"
+              v-for="(d, i) in conductores"
               :key="d.id"
               class="border-t transition-opacity"
               :style="{ borderColor: 'var(--border)' }"
               :class="ocupado === d.id && 'opacity-50'"
             >
+              <td
+                class="p-3 text-right font-mono text-xs tabular"
+                :style="{ color: 'var(--on-surface-muted)' }"
+              >
+                {{ numeroDeFila(i) }}
+              </td>
               <td class="p-3 font-medium">{{ d.name || '(sin nombre)' }}</td>
               <td class="p-3 font-mono text-xs" :style="{ color: 'var(--on-surface-muted)' }">
                 {{ d.code || '—' }}
@@ -279,6 +328,15 @@ async function quitarVinculo(d: Driver) {
           </tbody>
         </table>
       </div>
+
+      <Paginador
+        v-if="meta"
+        :pagina="meta.page"
+        :paginas="meta.pages"
+        :total="meta.total"
+        etiqueta="conductores"
+        @cambiar="pagina = $event"
+      />
     </div>
 
     <!-- ───────── formulario ───────── -->

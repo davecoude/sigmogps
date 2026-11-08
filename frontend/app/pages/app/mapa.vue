@@ -85,6 +85,8 @@ function seleccionar(id: number) {
                  text-console-ink placeholder:text-console-muted"
         />
 
+        <BotonExportar recurso="vehicles" etiqueta="Exportar la flota" />
+
         <div class="flex flex-wrap gap-1.5">
           <button
             v-for="f in FILTROS"
