@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import require_permission
 from app.api.v1.schemas.common import PagedResponse, PageMeta
+from app.api.v1.schemas.passengers import PassengerOut
 from app.api.v1.schemas.vehicles import FleetSummary, VehicleDetail, VehicleListItem
 from app.core.config import get_settings
 from app.domain.exceptions import NotFoundError
@@ -13,6 +14,7 @@ from app.domain.models import VehicleStatus
 from app.domain.permissions import Permission
 from app.infrastructure.wialon.client import get_wialon_client
 from app.infrastructure.wialon.repository import WialonFleetRepository
+from app.services.passenger_service import PassengerService
 from app.services.vehicle_service import VehicleService
 
 router = APIRouter(prefix="/vehicles", tags=["vehículos"])
@@ -84,3 +86,22 @@ async def get_vehicle(vehicle_id: int, service: ServiceDep) -> VehicleDetail:
     if vehiculo is None:
         raise NotFoundError("El vehículo no existe o no es visible para esta cuenta.")
     return VehicleDetail.from_domain(vehiculo)
+
+
+@router.get(
+    "/{vehicle_id}/passengers",
+    response_model=list[PassengerOut],
+    dependencies=[LeerVehiculos],
+    summary="Pasajeros asignados al vehículo",
+)
+async def passengers_of_vehicle(vehicle_id: int) -> list[PassengerOut]:
+    """RF-09. Endpoint aparte y no dentro del detalle: la interfaz lo pide en
+    paralelo y un fallo leyendo las asignaciones no deja sin datos al vehículo."""
+    settings = get_settings()
+    servicio = PassengerService(
+        WialonFleetRepository(get_wialon_client()),
+        resource_id=settings.wialon_resource_id,
+    )
+    return [
+        PassengerOut.from_domain(p) for p in await servicio.passengers_of_unit(vehicle_id)
+    ]

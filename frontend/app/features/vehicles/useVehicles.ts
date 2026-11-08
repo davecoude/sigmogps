@@ -41,8 +41,8 @@ export function useFleetSummary() {
   })
 }
 
-/** Pausa el refresco cuando la pestaña está oculta. */
-function useDocumentVisibility() {
+/** Pausa el refresco cuando la pestaña está oculta (RF-14). */
+export function useDocumentVisibility() {
   const visible = ref(true)
   onMounted(() => {
     const actualizar = () => (visible.value = document.visibilityState === 'visible')
