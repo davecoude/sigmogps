@@ -1,16 +1,31 @@
 <script setup lang="ts">
-defineProps<{ tone?: 'error' | 'warn' | 'info' }>()
+withDefaults(defineProps<{ tone?: 'error' | 'warn' | 'info' }>(), { tone: 'error' })
 </script>
 
 <template>
   <div
     role="alert"
     class="flex gap-2.5 rounded-md border px-3.5 py-3 text-sm"
-    :class="[
-      (tone ?? 'error') === 'error' && 'border-brand/30 bg-brand-soft text-brand',
-      tone === 'warn' && 'border-ochre/30 bg-ochre-soft text-ochre',
-      tone === 'info' && 'border-teal/30 bg-teal-soft text-teal-ink',
-    ]"
+    :style="{
+      borderColor:
+        tone === 'warn'
+          ? 'color-mix(in srgb, var(--color-ochre) 45%, transparent)'
+          : tone === 'info'
+            ? 'color-mix(in srgb, var(--color-teal) 45%, transparent)'
+            : 'color-mix(in srgb, var(--danger) 45%, transparent)',
+      background:
+        tone === 'warn'
+          ? 'color-mix(in srgb, var(--color-ochre) 12%, var(--surface))'
+          : tone === 'info'
+            ? 'color-mix(in srgb, var(--color-teal) 12%, var(--surface))'
+            : 'color-mix(in srgb, var(--danger) 12%, var(--surface))',
+      color:
+        tone === 'warn'
+          ? 'var(--color-ochre)'
+          : tone === 'info'
+            ? 'var(--color-teal-ink)'
+            : 'var(--danger)',
+    }"
   >
     <span aria-hidden="true">●</span>
     <span class="min-w-0"><slot /></span>

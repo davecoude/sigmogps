@@ -1,4 +1,5 @@
 <script setup lang="ts">
+/** Lee la superficie del contenedor: no sabe si está en claro u oscuro. */
 withDefaults(
   defineProps<{
     variant?: 'primary' | 'ghost' | 'danger'
@@ -16,15 +17,8 @@ withDefaults(
   <button
     :type="type"
     :disabled="disabled || loading"
-    :class="[
-      'inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold',
-      'transition-colors disabled:opacity-55 disabled:cursor-not-allowed',
-      shape === 'pill' ? 'rounded-full' : 'rounded-md',
-      block && 'w-full',
-      variant === 'primary' && 'bg-brand text-white hover:bg-brand-hi',
-      variant === 'ghost' && 'border border-line-strong text-ink hover:bg-wash-2',
-      variant === 'danger' && 'bg-brand-hi text-white hover:bg-brand',
-    ]"
+    class="btn"
+    :class="[`btn-${variant}`, shape === 'pill' && 'btn-pill', block && 'w-full']"
   >
     <span
       v-if="loading"

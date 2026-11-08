@@ -7,6 +7,62 @@ Formato: **qué decidí · por qué · qué alternativa descarté.**
 
 ---
 
+## Integración con Wialon
+
+### ¿Qué fue lo más difícil de integrar?
+
+El vínculo conductor-vehículo. Wialon acepta `resource/bind_unit_driver` y
+responde de inmediato, pero tarda alrededor de **2,3 segundos** en exponer el
+cambio en el campo `bu` del conductor. Eso no está documentado; lo medí.
+
+El efecto era que el usuario vinculaba un conductor y no veía el cambio hasta
+recargar varias veces. La causa real no era el caché viejo sino el que
+guardábamos después: al escribir se limpiaba el caché correctamente, pero la
+lectura siguiente llegaba antes de la propagación, traía el valor anterior y lo
+dejaba fijado los 15 segundos completos del TTL.
+
+Dos correcciones:
+
+1. **Cuarentena de lecturas.** Durante seis segundos después de cualquier
+   escritura, las lecturas van directo a Wialon: ni se sirven ni se guardan en
+   caché. Protege a toda escritura, no solo al vínculo.
+2. **Confirmación antes de responder.** `bind` y `unbind` sondean hasta que
+   Wialon expone el cambio, con límite de seis segundos. Cuando el endpoint
+   devuelve `204`, el cambio ya es visible: el cliente puede confiar en la
+   respuesta en vez de adivinar cuándo releer.
+
+Resultado medido: de 17 segundos a 0,56 segundos. Cubierto por
+`tests/test_wialon_cache.py`, donde la tercera prueba es exactamente la que
+habría atrapado el error.
+
+### ¿Cómo lo diagnosticaste?
+
+Con dos sondas, no leyendo código. La primera medía contra el API y separaba
+frontend de backend. La segunda leía con y sin caché para separar la
+propagación de Wialon de nuestro propio retraso: 2,35 s sin caché contra
+15,84 s con caché. Esa diferencia era la parte que aportábamos nosotros.
+
+### ¿Por qué el nombre visible del vehículo no es `nm`?
+
+Porque en la cuenta real `nm` es un identificador interno (`957.`,
+`863238077731893`) y la placa vive en un campo personalizado llamado `PLACA`,
+presente solo en 15 de 65 unidades. La interfaz muestra la placa cuando existe
+y cae al nombre de la unidad cuando no.
+
+Los nombres de campos personalizados vienen con erratas del cliente
+(`LINEA` y `LÍNEA`, `COLOR` y `COLORE`, `PROPIETARIO` y `PROPOIETARIO`). Se
+normaliza acento y caja **para buscar**, pero al escribir se reenvía el nombre
+original: renombrarle un campo al cliente en silencio sería corromper su dato.
+
+### ¿Por qué ningún vehículo muestra conductor al entrar?
+
+Los cuatro conductores que la cuenta demo trae vinculados apuntan a unidades
+que este token no puede ver. Con los datos de origen, RF-13 no se puede
+demostrar. Se demuestra vinculando un conductor desde la interfaz (RF-17) a una
+unidad visible, que es justamente lo que el requerimiento pide poder hacer.
+
+---
+
 ## Arquitectura y capas
 
 ### ¿Por qué estas cinco carpetas y no un solo archivo por recurso?

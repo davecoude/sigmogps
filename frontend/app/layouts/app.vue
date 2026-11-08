@@ -24,7 +24,7 @@ const iniciales = computed(() =>
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col bg-console text-console-ink md:flex-row">
+  <div class="surface-dark flex min-h-dvh flex-col bg-console text-console-ink md:flex-row">
     <!-- Riel de navegación. En móvil pasa abajo, al alcance del pulgar. -->
     <nav
       class="order-2 flex shrink-0 items-center gap-1 border-t border-console-line bg-console-3

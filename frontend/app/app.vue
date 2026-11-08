@@ -18,5 +18,6 @@ const arrancando = computed(() => route.path.startsWith('/app') && !cargado.valu
     <NuxtLayout v-else>
       <NuxtPage />
     </NuxtLayout>
+    <ToastHost />
   </div>
 </template>

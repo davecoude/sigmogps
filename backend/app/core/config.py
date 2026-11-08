@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     wialon_token: SecretStr = SecretStr("")
     wialon_timeout_seconds: float = 10.0
     wialon_cache_ttl_seconds: int = 15
+    # Tras una escritura, Wialon tarda ~2 s en propagar el cambio.
+    # Durante este lapso las lecturas no usan ni llenan el caché, para
+    # no guardar un dato obsoleto por todo el TTL.
+    wialon_write_quarantine_seconds: float = 6.0
     wialon_resource_id: int = 27668776
 
     # Umbrales del estado derivado (sección 4.4)
