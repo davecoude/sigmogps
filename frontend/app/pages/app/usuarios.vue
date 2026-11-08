@@ -9,7 +9,44 @@ const { user: actual } = useAuth()
 const toast = useToast()
 
 const busqueda = ref('')
-const { data: usuarios, isPending, isError, error, refetch, isFetching } = useUsers(busqueda)
+const pagina = ref(1)
+
+// El tamaño de página lo decide el alto de la ventana, no una constante.
+const zonaTabla = ref<HTMLElement | null>(null)
+const { filas: porPagina } = useFilasQueCaben(zonaTabla)
+
+// Al cambiar el tamaño de página, la fila que el usuario miraba debe seguir
+// visible: se recalcula a qué página pertenece.
+watch(porPagina, (nuevo, anterior) => {
+  if (!anterior || !nuevo) return
+  const primerRegistro = (pagina.value - 1) * anterior
+  pagina.value = Math.floor(primerRegistro / nuevo) + 1
+})
+
+const busquedaDiferida = ref('')
+let temporizador: ReturnType<typeof setTimeout>
+watch(busqueda, (v) => {
+  clearTimeout(temporizador)
+  temporizador = setTimeout(() => {
+    busquedaDiferida.value = v
+    pagina.value = 1
+  }, 350)
+})
+
+const filtros = computed(() => ({
+  search: busquedaDiferida.value,
+  page: pagina.value,
+  pageSize: porPagina.value,
+}))
+
+/** Número de registro dentro del total, no dentro de la página. */
+function numeroDeFila(indice: number) {
+  return (meta.value ? (meta.value.page - 1) * meta.value.page_size : 0) + indice + 1
+}
+
+const { data, isPending, isError, error, refetch, isFetching } = useUsers(filtros)
+const usuarios = computed(() => data.value?.items ?? [])
+const meta = computed(() => data.value?.meta)
 const { data: roles } = useRoles()
 const { crear, cambiarRol, cambiarEstado, restablecer } = useUserMutations()
 
@@ -150,11 +187,11 @@ function fecha(iso: string | null) {
       <div class="mr-auto flex items-baseline gap-3">
         <h1 class="text-lg font-semibold">Usuarios</h1>
         <span
-          v-if="usuarios?.length"
+          v-if="meta"
           class="font-mono text-xs tabular"
           :style="{ color: 'var(--on-surface-muted)' }"
         >
-          {{ usuarios.length }}
+          {{ meta.total }}
         </span>
         <span
           v-if="isFetching && !isPending"
@@ -176,7 +213,7 @@ function fecha(iso: string | null) {
       <AppButton @click="abrirCrear">Nuevo usuario</AppButton>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-auto p-4">
+    <div ref="zonaTabla" class="flex min-h-0 flex-1 flex-col p-4">
       <div v-if="isPending" class="grid gap-2" aria-busy="true">
         <div
           v-for="n in 4"
@@ -191,7 +228,7 @@ function fecha(iso: string | null) {
         <AppButton class="mt-3" variant="ghost" block @click="refetch()">Reintentar</AppButton>
       </div>
 
-      <div v-else-if="!usuarios?.length" class="grid justify-items-center gap-2 py-16 text-center">
+      <div v-else-if="!usuarios.length" class="grid justify-items-center gap-2 py-16 text-center">
         <span class="text-3xl" aria-hidden="true">⚿</span>
         <p class="font-semibold">Ningún usuario coincide</p>
         <p class="text-sm" :style="{ color: 'var(--on-surface-muted)' }">
@@ -199,7 +236,11 @@ function fecha(iso: string | null) {
         </p>
       </div>
 
-      <div v-else class="overflow-x-auto rounded-md border" :style="{ borderColor: 'var(--border)' }">
+      <div
+        v-else
+        class="min-h-0 flex-1 overflow-x-auto rounded-md border"
+        :style="{ borderColor: 'var(--border)' }"
+      >
         <table class="w-full min-w-[52rem] border-collapse text-sm">
           <caption class="sr-only">Usuarios de la plataforma, su rol y su estado</caption>
           <thead>
@@ -207,6 +248,7 @@ function fecha(iso: string | null) {
               class="text-left text-xs font-semibold"
               :style="{ background: 'var(--surface)', color: 'var(--on-surface-soft)' }"
             >
+              <th scope="col" class="w-12 p-3 text-right">#</th>
               <th scope="col" class="p-3">Usuario</th>
               <th scope="col" class="p-3">Rol</th>
               <th scope="col" class="p-3">Estado</th>
@@ -216,12 +258,18 @@ function fecha(iso: string | null) {
           </thead>
           <tbody>
             <tr
-              v-for="u in usuarios"
+              v-for="(u, i) in usuarios"
               :key="u.id"
               class="border-t transition-opacity"
               :style="{ borderColor: 'var(--border)' }"
               :class="ocupado === u.id && 'opacity-50'"
             >
+              <td
+                class="p-3 text-right font-mono text-xs tabular"
+                :style="{ color: 'var(--on-surface-muted)' }"
+              >
+                {{ numeroDeFila(i) }}
+              </td>
               <td class="p-3">
                 <div class="font-medium">
                   {{ u.full_name }}
@@ -306,6 +354,15 @@ function fecha(iso: string | null) {
           </tbody>
         </table>
       </div>
+
+      <Paginador
+        v-if="meta"
+        :pagina="meta.page"
+        :paginas="meta.pages"
+        :total="meta.total"
+        etiqueta="usuarios"
+        @cambiar="pagina = $event"
+      />
     </div>
 
     <!-- ───────── crear ───────── -->

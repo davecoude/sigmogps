@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from app.core.logging import get_logger
 from app.domain.exceptions import ConflictError, NotFoundError, ValidationError
 from app.domain.models import Driver
+from app.domain.pagination import Page, paginar
 from app.infrastructure.wialon.mappers import map_driver
 from app.infrastructure.wialon.repository import WialonFleetRepository
 
@@ -50,6 +51,12 @@ class DriverService:
 
         conductores.sort(key=lambda d: d.name.lower())
         return conductores
+
+    async def list_page(
+        self, *, search: str | None = None, page: int = 1, page_size: int = 25
+    ) -> Page[Driver]:
+        """Wialon devuelve los conductores del recurso completos, sin paginar."""
+        return paginar(await self.list_drivers(search=search), page=page, page_size=page_size)
 
     async def get_driver(self, driver_id: int) -> Driver:
         bruto = await self._repo.get_driver(self._resource_id, driver_id)

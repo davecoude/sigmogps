@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
+import type { Paged } from '~/types/api'
 
 export interface RoleOption {
   id: number
@@ -34,11 +35,24 @@ export function useRoles() {
   })
 }
 
-export function useUsers(search: Ref<string>) {
+export interface FiltrosUsuarios {
+  search: string
+  page: number
+  pageSize: number
+}
+
+export function useUsers(filtros: Ref<FiltrosUsuarios>) {
   const { $api } = useNuxtApp()
   return useQuery({
-    queryKey: ['users', search],
-    queryFn: () => $api<ManagedUser[]>('/users', { query: { search: search.value || undefined } }),
+    queryKey: ['users', filtros],
+    queryFn: () =>
+      $api<Paged<ManagedUser>>('/users', {
+        query: {
+          search: filtros.value.search || undefined,
+          page: filtros.value.page,
+          page_size: filtros.value.pageSize,
+        },
+      }),
     placeholderData: (anterior) => anterior,
   })
 }
@@ -56,8 +70,10 @@ export function useUserMutations() {
    * confirma después, sin que el usuario la espere.
    */
   const aplicarEnCache = (actualizado: ManagedUser) => {
-    qc.setQueriesData<ManagedUser[]>({ queryKey: ['users'] }, (lista) =>
-      lista?.map((u) => (u.id === actualizado.id ? actualizado : u)),
+    qc.setQueriesData<Paged<ManagedUser>>({ queryKey: ['users'] }, (pagina) =>
+      pagina
+        ? { ...pagina, items: pagina.items.map((u) => (u.id === actualizado.id ? actualizado : u)) }
+        : pagina,
     )
   }
 
