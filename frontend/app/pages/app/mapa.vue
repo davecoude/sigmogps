@@ -132,7 +132,7 @@ function seleccionar(id: number) {
 
         <!-- lista -->
         <ul v-else class="divide-y divide-console-line">
-          <li v-for="v in vehiculos" :key="v.id">
+          <li v-for="v in vehiculos" :key="v.id" class="relative">
             <button
               type="button"
               class="grid w-full gap-1.5 px-4 py-3 text-left transition-colors"
@@ -153,10 +153,22 @@ function seleccionar(id: number) {
                 <span v-if="v.position?.cardinal">{{ v.position.cardinal }}</span>
                 <span v-if="v.position" class="tabular">{{ horaLocal(v.position.reported_at) }}</span>
               </div>
-              <p class="truncate text-xs" :class="v.driver_name ? 'text-console-ink' : 'text-console-muted'">
+              <p
+                class="truncate pr-16 text-xs"
+                :class="v.driver_name ? 'text-console-ink' : 'text-console-muted'"
+              >
                 {{ v.driver_name ?? 'Sin conductor vinculado' }}
               </p>
             </button>
+
+            <!-- Hermano del boton, no hijo: un enlace dentro de un boton es
+                 HTML invalido y el navegador lo reubica al hidratar. -->
+            <NuxtLink
+              :to="`/app/vehiculos/${v.id}`"
+              class="absolute bottom-2.5 right-3 rounded px-1.5 py-0.5 text-xs text-brand-dark hover:underline"
+            >
+              Detalle
+            </NuxtLink>
           </li>
         </ul>
       </div>
