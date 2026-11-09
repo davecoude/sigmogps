@@ -169,8 +169,18 @@ expone un stack trace, una consulta SQL ni un nombre de archivo interno.
 
 Argon2id ganó la Password Hashing Competition y es la primera recomendación de
 OWASP. A diferencia de bcrypt, es resistente a ataques con GPU porque consume
-memoria además de CPU. Los parámetros son los predeterminados de `argon2-cffi`,
-que siguen la guía de OWASP.
+memoria además de CPU.
+
+Los parámetros **no** son los predeterminados de `argon2-cffi`. Los
+predeterminados (64 MiB, 3 iteraciones, 4 hilos) asumen una máquina con varios
+núcleos dedicados; en el plan gratuito de Render, donde el servicio corre sobre
+una fracción de vCPU, los 4 hilos compiten entre sí y el login tardaba
+**2,3 segundos** medidos. Se cambió a la configuración primaria de la hoja de
+OWASP —**19 MiB, t=2, p=1**— que ofrece la misma resistencia con un perfil
+pensado para un solo hilo. El login bajó a unos 0,4 s.
+
+Es el ejemplo de por qué «usar los valores por defecto» no es una decisión: hay
+que saber para qué máquina fueron pensados.
 
 `needs_rehash()` permite subir el costo en el futuro: el hash se regenera en el
 siguiente login exitoso, sin pedirle nada al usuario.
@@ -321,10 +331,15 @@ Render instala del lockfile, así que la versión que probé es la que corre.
 
 ## Limitaciones conocidas
 
-Se mantienen aquí y se trasladan al README al cerrar la entrega.
+La lista completa, con mejoras priorizadas, está en la sección 11 del README.
+Las tres que más probablemente pregunten:
 
 - El bloqueo por intentos fallidos es por usuario, no por IP. Un atacante con
-  muchos correos no se frena.
+  muchos correos no se frena. El limitador por IP de `core/http_security.py`
+  amortigua el volumen, pero la IP viene de `X-Forwarded-For` y es falsificable
+  si alguien alcanza el servicio sin pasar por el proxy.
 - `token_version` invalida todos los refresh de un usuario a la vez; no permite
   cerrar un solo dispositivo.
-- El rate limiting general del API aún no está implementado.
+- El contador del limitador vive en memoria del proceso. Con más de una
+  instancia cada una tendría el suyo; la solución general requiere Redis, que
+  el plan gratuito no ofrece.
