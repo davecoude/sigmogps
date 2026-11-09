@@ -339,12 +339,19 @@ Dos cubos independientes por IP, en ventana deslizante de 60 segundos:
 
 | Cubo | Límite | Configurable con |
 |---|---|---|
-| General | 120 por minuto | `RATE_LIMIT_PER_MINUTE` |
-| Ingreso | 10 por minuto | `RATE_LIMIT_LOGIN_PER_MINUTE` |
+| General | 600 por minuto | `RATE_LIMIT_PER_MINUTE` |
+| Ingreso | 40 por minuto | `RATE_LIMIT_LOGIN_PER_MINUTE` |
 
 Rechaza con `429` en formato Problem Details y cabecera `Retry-After`.
 
-Dos honestidades sobre este control:
+**Los umbrales son holgados a propósito.** La interfaz llega al API a través del
+proxy de Vercel, y no está verificado que ese salto propague la IP del cliente
+hasta Render. Si no lo hace, todas las peticiones caen en un mismo cubo: con
+umbrales estrechos, el limitador se convierte en una caída de servicio para
+usuarios legítimos, que es peor que el abuso que previene. Un umbral que no
+puedes atribuir correctamente debe ser generoso.
+
+Tres honestidades sobre este control:
 
 1. **Es un amortiguador, no el control principal.** La IP viene de
    `X-Forwarded-For`, que es falsificable si alguien alcanza el servicio sin

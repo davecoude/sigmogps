@@ -61,9 +61,15 @@ class Settings(BaseSettings):
 
     # Limitador de peticiones por IP (SEG-06). Amortigua el volumen; el control
     # principal contra fuerza bruta sigue siendo el bloqueo por usuario.
+    #
+    # Los umbrales son holgados a propósito. La interfaz llega al API a través
+    # del proxy de Vercel, y si ese salto no propaga la IP del cliente hasta
+    # Render, todas las peticiones caen en un mismo cubo. Con umbrales
+    # estrechos eso convertiría el limitador en una caída de servicio para
+    # usuarios legítimos, que es peor que el abuso que previene.
     rate_limit_enabled: bool = True
-    rate_limit_per_minute: int = 120
-    rate_limit_login_per_minute: int = 10
+    rate_limit_per_minute: int = 600
+    rate_limit_login_per_minute: int = 40
 
     @property
     def is_production(self) -> bool:
