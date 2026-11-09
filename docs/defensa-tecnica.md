@@ -46,7 +46,7 @@ propagación de Wialon de nuestro propio retraso: 2,35 s sin caché contra
 
 Porque en la cuenta real `nm` es un identificador interno (`957.`,
 `863238077731893`) y la placa vive en un campo personalizado llamado `PLACA`,
-presente solo en 15 de 65 unidades. La interfaz muestra la placa cuando existe
+presente solo en una minoría de las unidades. La interfaz muestra la placa cuando existe
 y cae al nombre de la unidad cuando no.
 
 Los nombres de campos personalizados vienen con erratas del cliente
