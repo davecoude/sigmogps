@@ -8,13 +8,32 @@ una consulta por página; el enfoque deja de servir por encima de unas pocas
 miles y queda documentado como límite conocido.
 """
 
+import asyncio
+
+from app.core.logging import get_logger
+from app.domain.exceptions import NotFoundError, ValidationError
 from app.domain.models import Vehicle, VehicleStatus
 from app.domain.pagination import Page, paginar
 from app.domain.ports import FleetProvider
-from app.infrastructure.wialon.mappers import map_driver, map_vehicle
+from app.infrastructure.wialon.mappers import (
+    map_custom_fields,
+    map_driver,
+    map_vehicle,
+    normalizar_nombre_campo,
+)
+
+logger = get_logger(__name__)
+
+LARGO_MAXIMO_NOMBRE = 60
+LARGO_MAXIMO_VALOR = 255
 
 
 class VehicleService:
+    # Wialon tarda en exponer una escritura (medido en ~2,3 s para vínculos).
+    # Se confirma antes de responder, igual que en el vínculo de conductores.
+    _ESPERA_PROPAGACION = 4.0
+    _INTERVALO_SONDEO = 0.4
+
     def __init__(self, provider: FleetProvider, *, resource_id: int) -> None:
         self._provider = provider
         self._resource_id = resource_id
@@ -94,6 +113,130 @@ class VehicleService:
             if v.id == vehicle_id:
                 return v
         return None
+
+    # ───────── campos personalizados (RF-19, RF-20) ─────────
+
+    async def replace_custom_fields(
+        self, vehicle_id: int, campos: dict[str, str]
+    ) -> Vehicle:
+        """Reemplaza el conjunto completo de campos personalizados.
+
+        Semántica de conjunto completo, igual que en pasajeros (RF-27): lo que
+        no viene en `campos` se elimina. Enviar un subconjunto borraría el
+        resto, así que el contrato es explícito y la operación es idempotente.
+
+        Wialon expone un campo por llamada y no tiene operación por lote, así
+        que se calcula la diferencia contra el estado actual: solo se escribe
+        lo que cambió. Con quince campos y un valor editado eso es una llamada
+        en vez de quince.
+
+        Los nombres existentes se preservan tal cual los tiene el cliente. Si
+        el nombre entrante coincide salvo acento o caja —los datos reales traen
+        LINEA y LÍNEA, COLOR y COLORE—, se actualiza el valor sin renombrar el
+        campo: renombrarlo en silencio sería corromper el dato del cliente.
+        """
+        limpios = self._validar_campos(campos)
+
+        bruto = await self._provider.get_unit(vehicle_id)
+        if bruto is None:
+            raise NotFoundError("El vehículo no existe o no es visible para esta cuenta.")
+
+        actuales = map_custom_fields(bruto.get("flds"))
+        por_nombre = {normalizar_nombre_campo(c.name): c for c in actuales}
+        entrantes = {normalizar_nombre_campo(n): (n, v) for n, v in limpios.items()}
+
+        creados = actualizados = eliminados = 0
+
+        for clave, (nombre, valor) in entrantes.items():
+            existente = por_nombre.get(clave)
+            if existente is None:
+                await self._provider.create_unit_custom_field(
+                    vehicle_id, name=nombre, value=valor
+                )
+                creados += 1
+            elif existente.value != valor:
+                # Se reenvía el nombre original, no el que llegó.
+                await self._provider.update_unit_custom_field(
+                    vehicle_id,
+                    field_id=existente.id,
+                    name=existente.name,
+                    value=valor,
+                )
+                actualizados += 1
+
+        for clave, existente in por_nombre.items():
+            if clave not in entrantes:
+                await self._provider.delete_unit_custom_field(vehicle_id, existente.id)
+                eliminados += 1
+
+        logger.info(
+            "campos_personalizados_reemplazados",
+            unidad=vehicle_id,
+            creados=creados,
+            actualizados=actualizados,
+            eliminados=eliminados,
+        )
+
+        if creados or actualizados or eliminados:
+            await self._esperar_propagacion(vehicle_id, entrantes)
+
+        vehiculo = await self.get_vehicle(vehicle_id)
+        if vehiculo is None:
+            raise NotFoundError("El vehículo dejó de ser visible después de guardar.")
+        return vehiculo
+
+    def _validar_campos(self, campos: dict[str, str]) -> dict[str, str]:
+        """Nombres no vacíos, sin duplicados ni siquiera por acento o caja."""
+        limpios: dict[str, str] = {}
+        vistos: dict[str, str] = {}
+
+        for nombre_bruto, valor_bruto in campos.items():
+            nombre = (nombre_bruto or "").strip()
+            if not nombre:
+                raise ValidationError("Hay un campo sin nombre.")
+            if len(nombre) > LARGO_MAXIMO_NOMBRE:
+                raise ValidationError(
+                    f"El nombre «{nombre[:20]}…» supera {LARGO_MAXIMO_NOMBRE} caracteres."
+                )
+
+            valor = str(valor_bruto or "").strip()
+            if len(valor) > LARGO_MAXIMO_VALOR:
+                raise ValidationError(
+                    f"El valor de «{nombre}» supera {LARGO_MAXIMO_VALOR} caracteres."
+                )
+
+            clave = normalizar_nombre_campo(nombre)
+            if clave in vistos:
+                raise ValidationError(
+                    f"«{nombre}» y «{vistos[clave]}» son el mismo campo para Wialon."
+                )
+            vistos[clave] = nombre
+            limpios[nombre] = valor
+
+        return limpios
+
+    async def _esperar_propagacion(
+        self, vehicle_id: int, esperados: dict[str, tuple[str, str]]
+    ) -> bool:
+        """Sondea hasta que Wialon exponga el conjunto escrito.
+
+        Que la respuesta sea `200` debe significar que el cambio ya es visible.
+        Si no se confirma dentro del límite se registra y se continúa: el dato
+        quedó escrito, solo no se pudo verificar a tiempo.
+        """
+        objetivo = {clave: valor for clave, (_, valor) in esperados.items()}
+        limite = asyncio.get_running_loop().time() + self._ESPERA_PROPAGACION
+
+        while asyncio.get_running_loop().time() < limite:
+            bruto = await self._provider.get_unit(vehicle_id)
+            actuales = map_custom_fields((bruto or {}).get("flds"))
+            visto = {normalizar_nombre_campo(c.name): c.value for c in actuales}
+            if visto == objetivo:
+                return True
+            await asyncio.sleep(self._INTERVALO_SONDEO)
+
+        logger.warning("campos_personalizados_sin_confirmar", unidad=vehicle_id)
+        return False
 
     async def summary(self) -> dict[str, int]:
         """KPIs del tablero (RF-23)."""
