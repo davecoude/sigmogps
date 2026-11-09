@@ -19,7 +19,8 @@ kilómetros por hora y estados derivados.
 | Módulo | Capacidad |
 |---|---|
 | Mapa | 65 unidades con agrupamiento de marcadores, estado derivado y refresco cada 10 s |
-| Detalle de vehículo | última lectura convertida, conductor vinculado, pasajeros asignados, campos personalizados |
+| Tablero | KPIs de la flota, composición por estado, cobertura de conductor y las unidades que exigen atención |
+| Detalle de vehículo | última lectura convertida, conductor vinculado, pasajeros asignados, campos personalizados editables |
 | Conductores | CRUD completo sobre Wialon y vínculo con vehículo |
 | Pasajeros | CRUD sobre 101 registros reales con campos personalizados y asignación a unidad |
 | Usuarios | CRUD, cambio de rol, restablecimiento de credenciales, activación |
@@ -37,8 +38,8 @@ kilómetros por hora y estados derivados.
 
 ### Capturas
 
-> Pendiente de adjuntar: mapa, detalle de vehículo, conductores, pasajeros,
-> usuarios y auditoría.
+> Pendiente de adjuntar: mapa, tablero, detalle de vehículo, conductores,
+> pasajeros, usuarios y auditoría.
 
 ---
 
@@ -633,8 +634,26 @@ que más alcance a medias.
 | Requisito | Estado | Por qué |
 |---|---|---|
 | RF-24 · Historial de recorridos | No implementado | Requiere `messages/load_interval` de Wialon con manejo de intervalos y paginación de mensajes. Es un módulo completo, no un endpoint; no alcanzaba sin recortar calidad en lo demás |
-| Gráficas en el tablero | KPIs numéricos únicamente | Una gráfica útil necesita series temporales, que dependen del historial de arriba |
-| TST-03 · Pruebas de frontend | No implementadas | Las pruebas de backend cubren la lógica de negocio y la autorización, que es donde está el riesgo. Las de frontend quedaron priorizadas por debajo |
+| Gráficas de serie temporal | KPIs numéricos y composición | Una gráfica de evolución necesita series temporales, que dependen del historial de arriba |
+| TST-03 · Pruebas de frontend | No implementadas | Las 42 pruebas de backend cubren la lógica de negocio, la integración con Wialon y la autorización, que es donde está el riesgo. Las de frontend quedaron priorizadas por debajo |
+
+### Pruebas
+
+42 pruebas, todas en el backend:
+
+| Archivo | Qué fija |
+|---|---|
+| `test_wialon_cache.py` | El caché y su cuarentena tras escribir. La tercera es la regresión del error de propagación medido |
+| `test_http_security.py` | Que las cabeceras envuelvan también un 404 y un 429, y que los dos cubos del limitador sean independientes |
+| `test_vehicle_custom_fields.py` | Que se escriba solo el campo que cambió y que no se renombren los campos del cliente |
+| `test_authorization.py` | Barrido de toda la superficie: ninguna ruta sin permiso, ninguna escritura sin CSRF |
+
+Las de autorización no revisan endpoint por endpoint: recorren el árbol de
+rutas. Si alguien agrega un endpoint sin `require_permission` o sin
+`verify_csrf`, fallan solas. Incluyen tres guardas contra la forma en que este
+tipo de prueba se degrada en silencio: que el barrido encuentre al menos 25
+rutas, que no queden excepciones apuntando a rutas inexistentes, y que no haya
+permisos en el catálogo que ninguna ruta exija.
 
 ### Limitaciones de lo que sí está implementado
 
