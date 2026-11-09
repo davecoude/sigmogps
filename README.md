@@ -18,11 +18,11 @@ kilómetros por hora y estados derivados.
 
 | Módulo | Capacidad |
 |---|---|
-| Mapa | 65 unidades con agrupamiento de marcadores, estado derivado y refresco cada 10 s |
+| Mapa | 62 unidades con agrupamiento de marcadores, estado derivado y refresco cada 10 s |
 | Tablero | KPIs de la flota, composición por estado, cobertura de conductor y las unidades que exigen atención |
 | Detalle de vehículo | última lectura convertida, conductor vinculado, pasajeros asignados, campos personalizados editables |
 | Conductores | CRUD completo sobre Wialon y vínculo con vehículo |
-| Pasajeros | CRUD sobre 101 registros reales con campos personalizados y asignación a unidad |
+| Pasajeros | CRUD sobre 102 registros reales con campos personalizados y asignación a unidad |
 | Usuarios | CRUD, cambio de rol, restablecimiento de credenciales, activación |
 | Auditoría | registro consultable de quién hizo qué, con filtros y paginación |
 | Exportación | CSV de vehículos, conductores y pasajeros |
@@ -38,8 +38,79 @@ kilómetros por hora y estados derivados.
 
 ### Capturas
 
-> Pendiente de adjuntar: mapa, tablero, detalle de vehículo, conductores,
-> pasajeros, usuarios y auditoría.
+Todas tomadas contra la cuenta real de Wialon y el despliegue en producción.
+
+> **Sobre las barras grises.** Este repositorio es público. Las capturas de
+> pasajeros y del detalle de vehículo muestran datos personales de terceros
+> —nombres, cédulas, licencias y el nombre del propietario— que quedarían en
+> el historial de git de forma permanente. Están tapados a propósito. Se usó
+> barra sólida y no desenfoque porque sobre texto corto, y sobre todo sobre
+> números de documento, un desenfoque es reversible. Lo que la captura debe
+> demostrar —la estructura, la paginación, los nombres de los campos— queda
+> visible.
+
+#### Mapa de la flota
+
+![Mapa de la flota con 62 unidades, marcadores agrupados y lista lateral filtrable por estado](docs/capturas/01-mapa.png)
+
+Las 62 unidades con agrupamiento de marcadores, refresco cada diez segundos y
+filtros por estado derivado. La captura se tomó de madrugada, que es por lo que
+no hay ninguna unidad en movimiento: el estado no es un dato de Wialon, se
+deriva de la velocidad y de la antigüedad del último mensaje.
+
+#### Tablero
+
+![Tablero con 62 unidades, composición por estado, cobertura de conductor del 16 por ciento y las unidades con más tiempo sin reportar](docs/capturas/02-tablero.png)
+
+La composición por estado va en barras por fila con etiqueta directa y no en
+una barra apilada: medido sobre esta superficie, el teal de «en movimiento» y
+el gris de «detenido» quedan por debajo del umbral de separación perceptual, y
+pegados en una sola barra serían difíciles de distinguir incluso con visión de
+color completa.
+
+A la derecha, las unidades con más tiempo sin reportar. Los 585 días de las
+rutas de un cliente no son un error de la aplicación: es lo que la cuenta
+contiene, y mostrarlo es justamente el trabajo.
+
+#### Detalle de vehículo
+
+![Detalle del vehículo GUV875 con última lectura convertida, conductor vinculado, pasajeros asignados y campos personalizados](docs/capturas/03-detalle.png)
+
+RF-12, RF-13 y RF-09 en una pantalla. La última lectura muestra la conversión:
+la hora llega de Wialon en segundos UNIX y se presenta en `America/Bogota`, la
+velocidad llega sin unidad y se rotula km/h, el rumbo se da en grados, punto
+cardinal y palabra.
+
+Los nombres de los campos personalizados se muestran tal como los tiene el
+cliente. La aplicación normaliza acento y caja **para buscar**, pero al escribir
+reenvía el nombre original: corregirle la grafía al cliente en silencio sería
+corromper su dato.
+
+#### Conductores
+
+![Tabla de conductores ajustada a la ventana, con acciones de vincular, editar y eliminar](docs/capturas/04-conductores.png)
+
+CRUD completo sobre Wialon más el vínculo con vehículo. La tabla se ajusta al
+alto de la ventana: `useFilasQueCaben` mide el contenedor y deriva cuántas filas
+caben, así que no hay desplazamiento de página.
+
+Los conductores de esta cuenta son datos de demostración, no personas reales.
+
+#### Pasajeros
+
+![Tabla de pasajeros con 102 registros paginados en 7 páginas, con los nombres y códigos tapados](docs/capturas/05-pasajeros.png)
+
+102 registros reales sobre *tags* de Wialon, con paginación numerada. Cada fila
+indica cuántos campos personalizados tiene y a qué vehículo está asignada.
+
+#### Auditoría
+
+![Registro de auditoría con 179 eventos, filtros por acción y eventos de ingreso fallido con su motivo](docs/capturas/06-auditoria.png)
+
+Quién hizo qué y cuándo, con filtros y paginación en la base de datos. Se ven
+los ingresos fallidos con su motivo —`clave_incorrecta`, `usuario_inactivo`— y
+las ediciones de campos personalizados sobre una unidad. El registro nunca
+guarda contraseñas ni tokens: `core/logging.py` los redacta de forma central.
 
 ---
 
@@ -519,7 +590,7 @@ Lo que se encontró al integrar la cuenta real, y que la aplicación tiene que
 tolerar:
 
 1. **El nombre de la unidad no es la placa.** La placa vive en un campo
-   personalizado `PLACA`, presente solo en 15 de 65 unidades.
+   personalizado `PLACA`, presente en una minoría de las unidades.
 2. **Los nombres de campos personalizados traen erratas del cliente:** `LINEA` y
    `LÍNEA`, `COLOR` y `COLORE`, `PROPIETARIO` y `PROPOIETARIO`. Se normaliza
    acento y caja **para buscar**, pero al escribir se reenvía el nombre
@@ -584,7 +655,7 @@ puede guardar.
 
 **Los pasajeros se modelan como *tags* de Wialon.** El enunciado habla de
 pasajeros, pero la API de Wialon no tiene esa entidad. Los *tags* del recurso son
-el objeto que la cuenta real usa para eso: 101 registros con nombre, código y
+el objeto que la cuenta real usa para eso: 102 registros con nombre, código y
 campos personalizados, vinculables a una unidad. La bandera correcta del recurso
 para leerlos es `0x200000` (2097153 con la base); `0x100000` devuelve grupos de
 geocercas, que fue un error que costó una tarde de diagnóstico.
