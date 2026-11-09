@@ -2,24 +2,32 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.deps import require_permission
+from app.api.deps import SessionDep, VerifiedUser, require_permission, verify_csrf
 from app.api.v1.schemas.common import PagedResponse, PageMeta
 from app.api.v1.schemas.passengers import PassengerOut
-from app.api.v1.schemas.vehicles import FleetSummary, VehicleDetail, VehicleListItem
+from app.api.v1.schemas.vehicles import (
+    CustomFieldsWrite,
+    FleetSummary,
+    VehicleDetail,
+    VehicleListItem,
+)
 from app.core.config import get_settings
 from app.domain.exceptions import NotFoundError
 from app.domain.models import VehicleStatus
 from app.domain.permissions import Permission
 from app.infrastructure.wialon.client import get_wialon_client
 from app.infrastructure.wialon.repository import WialonFleetRepository
+from app.services import audit_service
 from app.services.passenger_service import PassengerService
 from app.services.vehicle_service import VehicleService
 
 router = APIRouter(prefix="/vehicles", tags=["vehículos"])
 
 LeerVehiculos = Depends(require_permission(Permission.VEHICLES_READ))
+EscribirVehiculos = Depends(require_permission(Permission.VEHICLES_WRITE))
+Csrf = Depends(verify_csrf)
 
 
 def get_vehicle_service() -> VehicleService:
@@ -105,3 +113,36 @@ async def passengers_of_vehicle(vehicle_id: int) -> list[PassengerOut]:
     return [
         PassengerOut.from_domain(p) for p in await servicio.passengers_of_unit(vehicle_id)
     ]
+
+
+@router.put(
+    "/{vehicle_id}/custom-fields",
+    response_model=VehicleDetail,
+    dependencies=[EscribirVehiculos, Csrf],
+    summary="Reemplazar campos personalizados del vehículo",
+)
+async def replace_custom_fields(
+    vehicle_id: int,
+    payload: CustomFieldsWrite,
+    request: Request,
+    session: SessionDep,
+    user: VerifiedUser,
+    service: ServiceDep,
+) -> VehicleDetail:
+    """RF-19 y RF-20.
+
+    Wialon expone un campo por llamada, así que el servicio calcula la
+    diferencia contra el estado actual y escribe solo lo que cambió.
+    """
+    actualizado = await service.replace_custom_fields(vehicle_id, payload.custom_fields)
+    await audit_service.record(
+        session,
+        action="vehicle.custom_fields_updated",
+        request=request,
+        user_id=user.id,
+        user_email=user.email,
+        entity_type="vehicle",
+        entity_id=str(vehicle_id),
+        detail={"campos": sorted(payload.custom_fields)},
+    )
+    return VehicleDetail.from_domain(actualizado)

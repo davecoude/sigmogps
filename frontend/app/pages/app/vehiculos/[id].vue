@@ -1,13 +1,48 @@
 <script setup lang="ts">
+import { mensajeDeError } from '~/composables/useAuth'
+
 definePageMeta({ middleware: 'auth', layout: 'app', permiso: 'vehicles:read' })
 
 const ruta = useRoute()
 const id = computed(() => Number(ruta.params.id))
 
+const { puede } = useAuth()
+const toast = useToast()
+const puedeEditar = computed(() => puede('vehicles:write'))
+
 const { data: vehiculo, isPending, isError, error, refetch } = useVehicleDetail(id)
 const { data: pasajeros, isPending: cargandoPasajeros } = useVehiclePassengers(id)
+const guardarCampos = useVehicleCustomFields(id)
 
 useHead({ title: () => `${vehiculo.value?.display_name ?? 'Vehículo'} · sigmoGPS` })
+
+// ── edición de campos personalizados (RF-19, RF-20) ──
+const editandoCampos = ref(false)
+const camposEditados = ref<Record<string, string>>({})
+const guardando = ref(false)
+const errorForm = ref<string | null>(null)
+
+function abrirEditor() {
+  camposEditados.value = Object.fromEntries(
+    (vehiculo.value?.custom_fields ?? []).map((c) => [c.name, c.value]),
+  )
+  errorForm.value = null
+  editandoCampos.value = true
+}
+
+async function guardar() {
+  guardando.value = true
+  errorForm.value = null
+  try {
+    await guardarCampos.mutateAsync(camposEditados.value)
+    toast.exito('Campos personalizados guardados en Wialon.')
+    editandoCampos.value = false
+  } catch (e) {
+    errorForm.value = mensajeDeError(e)
+  } finally {
+    guardando.value = false
+  }
+}
 
 /**
  * Wialon entrega la marca de tiempo en segundos UNIX. El backend la normaliza
@@ -254,16 +289,26 @@ function iniciales(nombre: string) {
           </div>
         </section>
 
-        <!-- ─── campos personalizados ─── -->
+        <!-- ─── campos personalizados (RF-19, RF-20) ─── -->
         <section class="panel p-4 lg:col-span-2">
           <div class="mb-3 flex items-baseline justify-between gap-3">
             <h2 class="text-sm font-semibold">Campos personalizados</h2>
-            <span
-              class="font-mono text-xs tabular"
-              :style="{ color: 'var(--on-surface-muted)' }"
-            >
-              {{ vehiculo.custom_fields.length }}
-            </span>
+            <div class="flex items-baseline gap-3">
+              <span
+                class="font-mono text-xs tabular"
+                :style="{ color: 'var(--on-surface-muted)' }"
+              >
+                {{ vehiculo.custom_fields.length }}
+              </span>
+              <button
+                v-if="puedeEditar"
+                type="button"
+                class="btn-row"
+                @click="abrirEditor"
+              >
+                Editar
+              </button>
+            </div>
           </div>
 
           <dl
@@ -289,5 +334,29 @@ function iniciales(nombre: string) {
         </section>
       </div>
     </div>
+
+    <!-- ───────── editor de campos personalizados ───────── -->
+    <AppModal
+      v-if="editandoCampos"
+      titulo="Campos personalizados"
+      @cerrar="editandoCampos = false"
+    >
+      <div class="grid gap-4">
+        <AppAlert v-if="errorForm">{{ errorForm }}</AppAlert>
+
+        <p class="field-hint">
+          Se guarda el conjunto completo: el campo que quites aquí se elimina en Wialon.
+          Si cambias solo la grafía de un nombre existente —acento o mayúsculas— se
+          conserva el nombre original y se actualiza el valor.
+        </p>
+
+        <CustomFieldsEditor v-model="camposEditados" />
+
+        <div class="flex justify-end gap-2">
+          <AppButton variant="ghost" @click="editandoCampos = false">Cancelar</AppButton>
+          <AppButton :loading="guardando" @click="guardar">Guardar campos</AppButton>
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>

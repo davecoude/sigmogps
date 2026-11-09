@@ -65,6 +65,18 @@ class VehicleDetail(VehicleListItem):
         )
 
 
+class CustomFieldsWrite(BaseModel):
+    """Conjunto completo de campos. Lo que no venga, se elimina (RF-20).
+
+    Misma semántica que en pasajeros: enviar un subconjunto borraría el resto,
+    así que el contrato es explícito y la operación es idempotente.
+    """
+
+    custom_fields: dict[str, str] = Field(
+        description="Nombre del campo a su valor. El conjunto reemplaza al actual."
+    )
+
+
 class FleetSummary(BaseModel):
     total: int
     en_movimiento: int

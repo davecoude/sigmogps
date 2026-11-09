@@ -71,6 +71,11 @@ def require_permission(*required: Permission) -> Callable:
             )
         return user
 
+    # El requisito queda declarado en el propio objeto, no escondido en el
+    # cierre. Así `tests/test_authorization.py` puede recorrer todas las rutas
+    # y demostrar que ninguna quedó sin permiso, en vez de confiar en que
+    # alguien se acuerde de revisarlo endpoint por endpoint.
+    _checker.permisos_requeridos = required  # type: ignore[attr-defined]
     return _checker
 
 

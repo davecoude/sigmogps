@@ -9,9 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import Settings, get_settings
+from app.core.http_security import RateLimitMiddleware, SecurityHeadersMiddleware
 from app.core.logging import configurar_logging, get_logger
 from app.core.problem import registrar_manejadores
-
 from app.infrastructure.wialon.client import close_wialon_client
 
 logger = get_logger(__name__)
@@ -50,6 +50,17 @@ def create_app() -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
     )
 
+    # El orden importa: en Starlette el último middleware añadido es el más
+    # externo. Se declaran de adentro hacia afuera para que las cabeceras de
+    # seguridad envuelvan incluso al 429 del limitador, y para que el limitador
+    # ya tenga disponible el trace_id cuando rechaza una petición.
+    if settings.rate_limit_enabled:
+        app.add_middleware(
+            RateLimitMiddleware,
+            limite_general=settings.rate_limit_per_minute,
+            limite_login=settings.rate_limit_login_per_minute,
+        )
+
     @app.middleware("http")
     async def trace_id_middleware(request: Request, call_next):
         """Un identificador por petición, para correlacionar logs y errores."""
@@ -58,6 +69,9 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-Id"] = trace_id
         return response
+
+    # Añadido al final: queda como el middleware más externo (SEG-05).
+    app.add_middleware(SecurityHeadersMiddleware, es_produccion=settings.is_production)
 
     registrar_manejadores(app)
     app.include_router(api_router, prefix=settings.api_v1_prefix)

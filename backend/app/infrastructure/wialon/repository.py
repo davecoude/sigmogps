@@ -179,3 +179,49 @@ class WialonFleetRepository:
             if unidad:
                 actual[tag_id] = unidad
         return actual
+
+    # ───────── campos personalizados de unidad (RF-19, RF-20) ─────────
+    #
+    # Wialon expone un campo por llamada, con `callMode` en create, update o
+    # delete. No existe una operación por lote: el servicio calcula la
+    # diferencia contra el estado actual para hacer el mínimo de llamadas.
+    # Referencia: sdk.wialon.com/wiki/en/kit/remoteapi/apiref/item/update_custom_field
+
+    async def create_unit_custom_field(
+        self, unit_id: int, *, name: str, value: str
+    ) -> dict[str, Any]:
+        """El `id` lo genera Wialon; enviarlo no tiene efecto al crear."""
+        datos = await self._client.call(
+            "item/update_custom_field",
+            {"itemId": unit_id, "id": 0, "callMode": "create", "n": name, "v": value},
+            usar_cache=False,
+        )
+        if isinstance(datos, list) and len(datos) == 2 and datos[1]:
+            return datos[1]
+        raise ExternalServiceError("Wialon no devolvió el campo personalizado creado")
+
+    async def update_unit_custom_field(
+        self, unit_id: int, *, field_id: int, name: str, value: str
+    ) -> dict[str, Any]:
+        datos = await self._client.call(
+            "item/update_custom_field",
+            {
+                "itemId": unit_id,
+                "id": field_id,
+                "callMode": "update",
+                "n": name,
+                "v": value,
+            },
+            usar_cache=False,
+        )
+        if isinstance(datos, list) and len(datos) == 2 and datos[1]:
+            return datos[1]
+        raise ExternalServiceError("Wialon no devolvió el campo personalizado actualizado")
+
+    async def delete_unit_custom_field(self, unit_id: int, field_id: int) -> None:
+        """Al borrar, Wialon responde [id, null]: la ausencia de objeto es el éxito."""
+        await self._client.call(
+            "item/update_custom_field",
+            {"itemId": unit_id, "id": field_id, "callMode": "delete"},
+            usar_cache=False,
+        )
