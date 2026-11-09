@@ -27,6 +27,7 @@ dev = [
     "pytest-asyncio>=0.25",
     "respx>=0.22",
     "ruff>=0.8",
+    "pip-audit>=2.7",
 ]
 
 [tool.setuptools.packages.find]
@@ -38,6 +39,10 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "S"]
 ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+# S105/S106: las pruebas usan credenciales falsas a propósito.
+"tests/*" = ["S105", "S106"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

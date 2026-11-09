@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     login_max_attempts: int = 5
     login_lockout_minutes: int = 15
 
+    # Limitador de peticiones por IP (SEG-06). Amortigua el volumen; el control
+    # principal contra fuerza bruta sigue siendo el bloqueo por usuario.
+    rate_limit_enabled: bool = True
+    rate_limit_per_minute: int = 120
+    rate_limit_login_per_minute: int = 10
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
